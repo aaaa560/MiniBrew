@@ -58,6 +58,14 @@ enum Commands {
         mac: String,
         windows: String,
     },
+    Info {
+        package: String,
+    },
+    List,
+    Export,
+    Import {
+        file: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -457,16 +465,79 @@ fn check_alias() {
     }
 }
 
+fn show_info(cfg: &Config, package: &str) {
+    if let Some(pkg) = cfg.packages.iter().find(|p| p.name == package) {
+        println!("Info par '{}':", package);
+        println!("  Linux:   {:?}", pkg.linux);
+        println!("  MacOS:   {:?}", pkg.mac);
+        println!(" Windws:   {:?}", pkg.windows);
+    } else {
+        println!("Pacote '{}' não encontrado no config.", package)
+    }
+}
+
+fn list_packages(cfg: &Config) {
+    println!("Pacotes disponiveis:");
+    for pkg in &cfg.packages {
+        println!("- {}", pkg.name);
+    }
+}
+
+fn export_config() {
+    let p = config_path();
+    println!("Exportando config de {}", p.display());
+    if let Ok(s) = fs::read_to_string(p) {
+        let out = "minibrew-export.json";
+        if fs::write(out, s).is_ok() {
+            println!("Config exportado para '{}'", out);
+        }
+    }
+}
+
+fn import_config(file: &str) {
+    println!("Importando config de {}", file);
+    if let Ok(s) = fs::read_to_string(file) {
+        if fs::write(config_path(), s).is_ok() {
+            println!("Config importado com sucesso!");
+        }
+    }
+}
+
+fn needs_update() -> bool {
+    if let Some(line) = last_action() {
+        if line.contains("UPGRADE_ALL") {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if let Ok(ts) = parts[0].parse::<u64>() {
+                let now = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs();
+                let diff_days = (now - ts) / 86400;
+                return diff_days >= 3;
+            }
+        }
+    }
+    true
+}
+
 fn main() {
     check_alias();
     ascii_banner();
     let cli = Cli::parse();
     let cfg = read_or_create_config();
 
+    if needs_update() {
+        println!(
+            "AVISO: faz mais de 3 dias desde o último upgrade. Considere rodar 'minibrew upgrade-all'"
+        );
+    }
+
     match cli.cmd {
         Commands::Install { package } => {
             if package == "furry" {
                 println!("EU ME RECUSO A BAIXA ESTA MERDA!!");
+            } else if package == "java" {
+                println!("Use Python seu ANIMAL!!");
             } else {
                 install_package(&cfg, &package);
             }
@@ -493,5 +564,9 @@ fn main() {
             mac,
             windows,
         } => add_package(cfg, name, linux, mac, windows),
+        Commands::Info { package } => show_info(&cfg, &package),
+        Commands::List => list_packages(&cfg),
+        Commands::Export => export_config(),
+        Commands::Import { file } => import_config(&file),
     }
 }
