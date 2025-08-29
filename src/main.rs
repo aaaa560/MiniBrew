@@ -1,7 +1,10 @@
 use clap::{Parser, Subcommand};
+use clap_complete::{generate, shells};
 use directories::ProjectDirs;
 use indicatif::{ProgressBar, ProgressStyle};
 use open;
+use owo_colors::OwoColorize;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
@@ -63,9 +66,13 @@ enum Commands {
         package: String,
     },
     List,
+    ListStacks,
     Export,
     Import {
         file: String,
+    },
+    Completions {
+        shell: String,
     },
 }
 
@@ -539,6 +546,54 @@ fn easter_eggs(package: &str) -> Option<&'static str> {
     eggs.insert("julia", "HHHUUUMM tarado");
 
     eggs.get(package).copied()
+}
+
+fn log_info(msg: &str) {
+    println!("{}", msg.blue());
+}
+
+fn log_warn(msg: &str) {
+    println!("{}", msg.yellow());
+}
+
+fn log_error(msg: &str) {
+    println!("{}", msg.red().bold());
+}
+
+fn log_success(msg: &str) {
+    println!("{}", msg.green());
+}
+
+fn list_stacks(cfg: &Config) {
+    println!("Stacks:");
+    for (stack, pkgs) in &cfg.stacks {
+        println!("{} -> {:?}", stack, pkgs);
+    }
+}
+
+fn completions(shell: &str) {
+    let mut cmd = Cli::command();
+    match shell {
+        "bash" => generate(shell::Bash, &mut cmd, "minibrew", &mut std::io::stdout()),
+        "zsh" => generate(shells::Zsh, &mut cmd, "minibrew", &mut std::io::stdout()),
+        _ => eprintln!("Shell não suportado!"),
+    }
+}
+
+fn install_many(cfg: &Config, package: Vec<String>) {
+    package.par_iter().for_each(|pkg| install_package(cfg, pkg));
+}
+
+fn rollback_last(cfg: &Config) {
+    if let Some(line) = last_action() {
+        if line.contains("INSTALL") {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if let Some(pkg) = parts.get(1) {
+                uninstall_package(cfg, pkg);
+                println!("Rollback de {} feito.", pkg);
+            }
+        }
+    }
 }
 
 fn main() {
