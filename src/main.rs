@@ -3,6 +3,7 @@ use directories::ProjectDirs;
 use indicatif::{ProgressBar, ProgressStyle};
 use open;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::env;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Write};
@@ -458,7 +459,7 @@ fn check_alias() {
             println!("Executando com '{}'", exe_name)
         } else {
             println!(
-                "Aviso: executando via '{}', não e um alias registrado",
+                "Aviso: executando via '{}', não é um alias registrado",
                 exe_name
             );
         }
@@ -470,7 +471,7 @@ fn show_info(cfg: &Config, package: &str) {
         println!("Info par '{}':", package);
         println!("  Linux:   {:?}", pkg.linux);
         println!("  MacOS:   {:?}", pkg.mac);
-        println!(" Windws:   {:?}", pkg.windows);
+        println!(" Windows:   {:?}", pkg.windows);
     } else {
         println!("Pacote '{}' não encontrado no config.", package)
     }
@@ -520,6 +521,26 @@ fn needs_update() -> bool {
     true
 }
 
+fn easter_eggs(package: &str) -> Option<&'static str> {
+    let mut eggs = HashMap::new();
+    eggs.insert("furry", "EU ME RECUSO A BAIXA ESTA MERDA!!");
+    eggs.insert("java", "Use Python seu ANIMAL!!");
+    eggs.insert("assembly", "Não, só não.");
+    eggs.insert("cobol", "Você tem 80 mil anos certo?");
+    eggs.insert("perl", "Cara... precisa de ajuda?");
+    eggs.insert("php", "Se instalar isso, o universo pode quebrar.");
+    eggs.insert("brainfuck", "Dor pura. Boa sorte.");
+    eggs.insert("whitespace", "␣␣␣ ... encontrou o vazio.");
+    eggs.insert("lolcode", "HAI WORLD. KTHXBYE.");
+    eggs.insert(
+        "swift",
+        "Nossa olha ele se achando so porque tem Mac e usa IPhone(A.K.A IDIOTA)",
+    );
+    eggs.insert("julia", "HHHUUUMM tarado");
+
+    eggs.get(package).copied()
+}
+
 fn main() {
     check_alias();
     ascii_banner();
@@ -534,10 +555,8 @@ fn main() {
 
     match cli.cmd {
         Commands::Install { package } => {
-            if package == "furry" {
-                println!("EU ME RECUSO A BAIXA ESTA MERDA!!");
-            } else if package == "java" {
-                println!("Use Python seu ANIMAL!!");
+            if let Some(msg) = easter_eggs(&package) {
+                println!("{}", msg);
             } else {
                 install_package(&cfg, &package);
             }
